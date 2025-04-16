@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 from typing import Dict, Iterable, Optional, Union
 
 import numpy as np
 
 from .image_processing_base import BatchFeature, ImageProcessingMixin
 from .image_transforms import center_crop, normalize, rescale
-from .image_utils import ChannelDimension, get_image_size
+from .image_utils import ChannelDimension
 from .utils import logging
 
 
@@ -288,21 +287,19 @@ def select_best_resolution(original_size: tuple, possible_resolutions: list) -> 
     return best_fit
 
 
-def get_patch_output_size(image, target_resolution, input_data_format):
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+
+def resize_multichannel(image_np: np.ndarray, size) -> np.ndarray:
     """
-    Given an image and a target resolution, calculate the output size of the image after cropping to the target
+    Resize a multi-channel image using bilinear interpolation.
+    Input: (H, W, C)
+    Output: (H_new, W_new, C) in numpy
     """
-    original_height, original_width = get_image_size(image, channel_dim=input_data_format)
-    target_height, target_width = target_resolution
-
-    scale_w = target_width / original_width
-    scale_h = target_height / original_height
-
-    if scale_w < scale_h:
-        new_width = target_width
-        new_height = min(math.ceil(original_height * scale_w), target_height)
-    else:
-        new_height = target_height
-        new_width = min(math.ceil(original_width * scale_h), target_width)
-
-    return new_height, new_width
+    assert image_np.ndim == 3, "Expected image with shape (H, W, C)"
+    image_tensor = torch.tensor(image_np, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)  # [1, C, H, W]
+    resized = F.interpolate(image_tensor, size=size, mode='bilinear', align_corners=False)
+    resized_np = resized.squeeze(0).permute(1, 2, 0).numpy()  # Back to (H, W, C)
+    return resized_np
