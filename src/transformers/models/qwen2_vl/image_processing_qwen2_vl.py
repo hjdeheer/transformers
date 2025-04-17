@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 
-from ...image_processing_utils import BaseImageProcessor, BatchFeature
+from ...image_processing_utils import BaseImageProcessor, BatchFeature, resize_multichannel
 from ...image_transforms import (
     convert_to_rgb,
     resize,
@@ -153,18 +153,18 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
         self.do_convert_rgb = do_convert_rgb
 
     def _preprocess(
-        self,
-        images: Union[ImageInput, VideoInput],
-        do_resize: bool = None,
-        resample: PILImageResampling = None,
-        do_rescale: bool = None,
-        rescale_factor: float = None,
-        do_normalize: bool = None,
-        image_mean: Optional[Union[float, List[float]]] = None,
-        image_std: Optional[Union[float, List[float]]] = None,
-        do_convert_rgb: bool = None,
-        data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
-        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+            self,
+            images: Union[ImageInput, VideoInput],
+            do_resize: bool = None,
+            resample: PILImageResampling = None,
+            do_rescale: bool = None,
+            rescale_factor: float = None,
+            do_normalize: bool = None,
+            image_mean: Optional[Union[float, List[float]]] = None,
+            image_std: Optional[Union[float, List[float]]] = None,
+            do_convert_rgb: bool = None,
+            data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
+            input_data_format: Optional[Union[str, ChannelDimension]] = None,
     ):
         """
         Preprocess an image or batch of images. Copy of the `preprocess` method from `CLIPImageProcessor`.
@@ -216,7 +216,7 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
             )
         if input_data_format is None:
             # We assume that all images have the same channel dimension format.
-            input_data_format = infer_channel_dimension_format(images[0])
+            input_data_format = infer_channel_dimension_format(images[0], num_channels=12)
 
         height, width = get_image_size(images[0], channel_dim=input_data_format)
         resized_height, resized_width = height, width
@@ -230,16 +230,23 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
                     min_pixels=self.min_pixels,
                     max_pixels=self.max_pixels,
                 )
-                image = resize(
-                    image, size=(resized_height, resized_width), resample=resample, input_data_format=input_data_format
-                )
+                if image.shape[-1] == 12:
+                    image = resize_multichannel(image, size=(resized_height, resized_width))
+                else:
+                    image = resize(
+                        image, size=(resized_height, resized_width), resample=resample, input_data_format=input_data_format
+                    )
 
             if do_rescale:
                 image = self.rescale(image, scale=rescale_factor, input_data_format=input_data_format)
 
             if do_normalize:
+                if image.shape[-1] == 12:
+                    mean = [0.48145466, 0.4578275, 0.40821073] * 4
+                    std = [0.26862954, 0.26130258, 0.27577711] * 4
+
                 image = self.normalize(
-                    image=image, mean=image_mean, std=image_std, input_data_format=input_data_format
+                    image=image, mean=mean, std=std, input_data_format=input_data_format
                 )
 
             image = to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format)
