@@ -216,7 +216,9 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
             )
         if input_data_format is None:
             # We assume that all images have the same channel dimension format.
-            input_data_format = infer_channel_dimension_format(images[0], num_channels=images[0].shape[-1])
+
+            num_channels = min(images[0].shape)
+            input_data_format = infer_channel_dimension_format(images[0], num_channels=num_channels)
 
         height, width = get_image_size(images[0], channel_dim=input_data_format)
         resized_height, resized_width = height, width
@@ -230,7 +232,7 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
                     min_pixels=self.min_pixels,
                     max_pixels=self.max_pixels,
                 )
-                if image.shape[-1] == 12:
+                if num_channels == 12:
                     image = resize_multichannel(image, size=(resized_height, resized_width))
                 else:
                     image = resize(
@@ -241,7 +243,7 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
                 image = self.rescale(image, scale=rescale_factor, input_data_format=input_data_format)
 
             if do_normalize:
-                if image.shape[-1] == 12:
+                if num_channels == 12:
                     image_mean = image_mean * 4
                     image_std = image_std * 4
 
