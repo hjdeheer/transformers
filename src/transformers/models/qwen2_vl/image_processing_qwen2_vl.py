@@ -232,7 +232,7 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
                     min_pixels=200 * 28 * 28,
                     max_pixels=200 * 28 * 28,
                 )
-                if num_channels == 12:
+                if num_channels > 3:
                     image = resize_multichannel(image, size=(resized_height, resized_width))
                 else:
                     image = resize(
@@ -250,6 +250,11 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
                     #Extend image_mean from 3 values RGB to 4 values RGBA
                     image_mean = [image_mean[0], image_mean[1], image_mean[2], image_mean[0]]
                     image_std = [image_std[0], image_std[1], image_std[2], image_std[0]]
+                if num_channels == 5:
+                    #Extend image_mean from 3 values RGB to 5 values RGBD
+                    image_mean = [image_mean[0], image_mean[1], image_mean[2], image_mean[0], image_mean[0]]
+                    image_std = [image_std[0], image_std[1], image_std[2], image_std[0], image_std[0]]
+
 
                 image = self.normalize(
                     image=image, mean=image_mean, std=image_std, input_data_format=input_data_format
